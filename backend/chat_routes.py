@@ -113,6 +113,7 @@ async def list_models(user: dict = Depends(get_current_user)):
     return {
         "models": models_list,
         "default": settings.get("default_model", "gemini-2.0-flash"),
+        "languages": [{"code": k, "name": v} for k, v in LANGUAGES.items()],
     }
 
 
