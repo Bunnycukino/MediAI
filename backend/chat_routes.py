@@ -11,19 +11,18 @@ from models import ChatRequest, ConversationCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+# Only models confirmed working with google-genai SDK (v1beta)
 MODEL_PROVIDERS = {
     "gemini-2.0-flash": ("gemini", "gemini-2.0-flash"),
-    "gemini-1.5-flash": ("gemini", "gemini-1.5-flash"),
-    "gemini-1.5-pro": ("gemini", "gemini-1.5-pro"),
+    "gemini-2.0-flash-lite": ("gemini", "gemini-2.0-flash-lite"),
     "gpt-4o": ("openai", "gpt-4o"),
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
 }
 
-# Fallback chain for Gemini models when quota is exhausted
+# Fallback chain for Gemini - try lite version if main is quota exhausted
 GEMINI_FALLBACK_CHAIN = [
     "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
+    "gemini-2.0-flash-lite",
 ]
 
 LANGUAGES = {
@@ -96,7 +95,6 @@ async def call_gemini_model(model_id: str, messages: list, system_prompt: str) -
 
 async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
     """Call Gemini with automatic fallback on 429 quota errors."""
-    # Build fallback list starting from requested model
     if model_id in GEMINI_FALLBACK_CHAIN:
         start_idx = GEMINI_FALLBACK_CHAIN.index(model_id)
         fallback_models = GEMINI_FALLBACK_CHAIN[start_idx:]
@@ -111,12 +109,12 @@ async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
             err_str = str(e)
             if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
                 last_error = e
-                continue  # try next model in chain
-            raise  # re-raise non-quota errors immediately
+                continue
+            raise
 
     raise HTTPException(
         status_code=429,
-        detail=f"All Gemini models quota exhausted. Try again later or switch to GPT-4o. Last error: {str(last_error)[:200]}"
+        detail=f"Gemini quota exhausted. Please try again later or switch to GPT-4o. ({str(last_error)[:150]})"
     )
 
 
