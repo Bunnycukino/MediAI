@@ -107,7 +107,7 @@ app.include_router(api_router)
 
 # CORS — needs explicit origin when cookies are used (allow_credentials=True)
 frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-allowed_origins = [frontend_url, "http://localhost:3000"]
+allowed_origins = [frontend_url, "http://localhost:3000", "https://susstyle.com", "https://www.susstyle.com", "https://susstyle.vercel.app"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
