@@ -49,7 +49,7 @@ export default function Chat() {
 
         setModels(asArray(m?.data?.models));
         setLanguages(asArray(m?.data?.languages));
-        setModel(asArray(m?.data?.models).find(x => x.id === m?.data?.default) ? m.data.default : (asArray(m?.data?.models)[0]?.id || "gemini-2.0-flash" || "gemini-2.0-flash");
+        setModel(asArray(m?.data?.models).find(x => x.id === m?.data?.default) ? m.data.default : (asArray(m?.data?.models)[0]?.id || "gemini-2.0-flash");
         setVoiceEnabled(!!m?.data?.voice_enabled);
         setConversations(asArray(c?.data));
       } catch (e) {
