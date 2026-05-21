@@ -104,7 +104,7 @@ async def list_models(user: dict = Depends(get_current_user)):
 @router.get("/conversations")
 async def get_conversations(user: dict = Depends(get_current_user)):
     from server import db
-    uid = str(user["_id"])
+    uid = str(user["id"])
     convs = await db.conversations.find(
         {"user_id": uid}
     ).sort("updated_at", -1).to_list(50)
@@ -116,7 +116,7 @@ async def get_conversations(user: dict = Depends(get_current_user)):
 @router.post("/conversations")
 async def create_conversation(data: ConversationCreate, user: dict = Depends(get_current_user)):
     from server import db
-    uid = str(user["_id"])
+    uid = str(user["id"])
     doc = {
         "user_id": uid,
         "title": data.title or "New consultation",
@@ -132,7 +132,7 @@ async def create_conversation(data: ConversationCreate, user: dict = Depends(get
 @router.get("/conversations/{conv_id}")
 async def get_conversation(conv_id: str, user: dict = Depends(get_current_user)):
     from server import db
-    uid = str(user["_id"])
+    uid = str(user["id"])
     conv = await db.conversations.find_one({"_id": ObjectId(conv_id), "user_id": uid})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -146,7 +146,7 @@ async def get_conversation(conv_id: str, user: dict = Depends(get_current_user))
 @router.delete("/conversations/{conv_id}")
 async def delete_conversation(conv_id: str, user: dict = Depends(get_current_user)):
     from server import db
-    uid = str(user["_id"])
+    uid = str(user["id"])
     result = await db.conversations.delete_one({"_id": ObjectId(conv_id), "user_id": uid})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -157,7 +157,7 @@ async def delete_conversation(conv_id: str, user: dict = Depends(get_current_use
 @router.post("/send")
 async def send_message(request: ChatRequest, user: dict = Depends(get_current_user)):
     from server import db
-    uid = str(user["_id"])
+    uid = str(user["id"])
     model_key = request.model or "gemini-2.0-flash"
     if model_key not in MODEL_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported model: {model_key}")
