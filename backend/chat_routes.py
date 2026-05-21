@@ -19,6 +19,13 @@ MODEL_PROVIDERS = {
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
 }
 
+# Fallback chain for Gemini models when quota is exhausted
+GEMINI_FALLBACK_CHAIN = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+]
+
 LANGUAGES = {
     "en": "English", "es": "Spanish", "fr": "French", "de": "German",
     "it": "Italian", "pt": "Portuguese", "ru": "Russian", "ar": "Arabic",
@@ -59,14 +66,14 @@ Be compassionate and clear.
     return prompt
 
 
-async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
+async def call_gemini_model(model_id: str, messages: list, system_prompt: str) -> str:
+    """Call a specific Gemini model - raises exception on failure."""
     import google.genai as genai
     from google.genai import types
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Gemini API key not configured")
     client = genai.Client(api_key=api_key)
-    # Convert messages to Gemini format
     contents = []
     for msg in messages:
         role = "user" if msg["role"] == "user" else "model"
@@ -85,6 +92,32 @@ async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
         )
     )
     return response.text
+
+
+async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
+    """Call Gemini with automatic fallback on 429 quota errors."""
+    # Build fallback list starting from requested model
+    if model_id in GEMINI_FALLBACK_CHAIN:
+        start_idx = GEMINI_FALLBACK_CHAIN.index(model_id)
+        fallback_models = GEMINI_FALLBACK_CHAIN[start_idx:]
+    else:
+        fallback_models = [model_id]
+
+    last_error = None
+    for attempt_model in fallback_models:
+        try:
+            return await call_gemini_model(attempt_model, messages, system_prompt)
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                last_error = e
+                continue  # try next model in chain
+            raise  # re-raise non-quota errors immediately
+
+    raise HTTPException(
+        status_code=429,
+        detail=f"All Gemini models quota exhausted. Try again later or switch to GPT-4o. Last error: {str(last_error)[:200]}"
+    )
 
 
 async def call_openai(model_id: str, messages: list, system_prompt: str) -> str:
