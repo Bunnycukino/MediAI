@@ -37,4 +37,29 @@ async def transcribe_audio(
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Transcription failed: {str(e)[:200]}")
-    text = 
+    text = response.text
+    return {"text": text}
+
+
+@router.post("/tts")
+async def text_to_speech(
+    request: TTSRequest,
+    user: dict = Depends(get_current_user),
+):
+    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    if request.voice not in ALLOWED_TTS_VOICES:
+        raise HTTPException(status_code=400, detail=f"Invalid voice. Choose from: {', '.join(ALLOWED_TTS_VOICES)}")
+    client = openai.AsyncOpenAI(api_key=api_key)
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice=request.voice,
+            input=request.text,
+        )
+        audio_data = response.content
+        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+        return {"audio": audio_b64, "format": "mp3"}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TTS failed: {str(e)[:200]}")
