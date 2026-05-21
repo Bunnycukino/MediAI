@@ -27,7 +27,7 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [models, setModels] = useState([]);
   const [languages, setLanguages] = useState([]);
-  const [model, setModel] = useState("gpt-5.2");
+  const [model, setModel] = useState("gpt-4o");
   const [language, setLanguage] = useState("en");
   const [recording, setRecording] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -49,7 +49,7 @@ export default function Chat() {
 
         setModels(asArray(m?.data?.models));
         setLanguages(asArray(m?.data?.languages));
-        setModel(m?.data?.default || "gpt-5.2");
+        setModel(m?.data?.default || "gpt-4o");
         setVoiceEnabled(!!m?.data?.voice_enabled);
         setConversations(asArray(c?.data));
       } catch (e) {
