@@ -1,10 +1,7 @@
 """Multi-LLM chat - Gemini (free) + OpenAI fallback."""
 import os
-import re
-import uuid
 import asyncio
 from datetime import datetime, timezone
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -63,23 +60,29 @@ Be compassionate and clear.
 
 
 async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
-    import google.generativeai as genai
+    import google.genai as genai
+    from google.genai import types
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Gemini API key not configured")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=model_id,
-        system_instruction=system_prompt,
-    )
-    history = []
-    for msg in messages[:-1]:
+    client = genai.Client(api_key=api_key)
+    # Convert messages to Gemini format
+    contents = []
+    for msg in messages:
         role = "user" if msg["role"] == "user" else "model"
-        history.append({"role": role, "parts": [msg["content"]]})
-    chat = model.start_chat(history=history)
+        contents.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
+    config = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        max_output_tokens=1500,
+    )
     loop = asyncio.get_event_loop()
     response = await loop.run_in_executor(
-        None, lambda: chat.send_message(messages[-1]["content"])
+        None,
+        lambda: client.models.generate_content(
+            model=model_id,
+            contents=contents,
+            config=config,
+        )
     )
     return response.text
 
@@ -184,10 +187,8 @@ async def send_message(request: ChatRequest, user: dict = Depends(get_current_us
     if conv_id and is_valid_object_id(conv_id):
         conv = await db.conversations.find_one({"_id": ObjectId(conv_id), "user_id": uid})
         if not conv:
-            # Conversation not found - create new one
             conv_id = None
     else:
-        # Invalid or missing conv_id - create new conversation
         conv_id = None
 
     if not conv_id:
