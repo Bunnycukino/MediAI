@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
+from bson.errors import InvalidId
 
 from auth_utils import get_current_user
 from models import ChatRequest, ConversationCreate
@@ -27,6 +28,14 @@ LANGUAGES = {
     "zh": "Chinese", "hi": "Hindi", "ja": "Japanese", "ko": "Korean",
     "tr": "Turkish", "pl": "Polish", "nl": "Dutch",
 }
+
+
+def is_valid_object_id(oid: str) -> bool:
+    try:
+        ObjectId(oid)
+        return True
+    except (InvalidId, Exception):
+        return False
 
 
 def build_system_prompt(profile: dict, language: str, extra: str = "") -> str:
@@ -63,7 +72,6 @@ async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
         model_name=model_id,
         system_instruction=system_prompt,
     )
-    # Build history for Gemini (all except last message)
     history = []
     for msg in messages[:-1]:
         role = "user" if msg["role"] == "user" else "model"
@@ -95,8 +103,12 @@ async def call_openai(model_id: str, messages: list, system_prompt: str) -> str:
 async def list_models(user: dict = Depends(get_current_user)):
     from server import db
     settings = await db.settings.find_one({"_id": "global"}) or {}
+    models_list = [
+        {"id": k, "name": k, "provider": v[0]}
+        for k, v in MODEL_PROVIDERS.items()
+    ]
     return {
-        "models": list(MODEL_PROVIDERS.keys()),
+        "models": models_list,
         "default": settings.get("default_model", "gemini-2.0-flash"),
     }
 
@@ -133,6 +145,8 @@ async def create_conversation(data: ConversationCreate, user: dict = Depends(get
 async def get_conversation(conv_id: str, user: dict = Depends(get_current_user)):
     from server import db
     uid = str(user["id"])
+    if not is_valid_object_id(conv_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
     conv = await db.conversations.find_one({"_id": ObjectId(conv_id), "user_id": uid})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -147,6 +161,8 @@ async def get_conversation(conv_id: str, user: dict = Depends(get_current_user))
 async def delete_conversation(conv_id: str, user: dict = Depends(get_current_user)):
     from server import db
     uid = str(user["id"])
+    if not is_valid_object_id(conv_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
     result = await db.conversations.delete_one({"_id": ObjectId(conv_id), "user_id": uid})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -165,11 +181,16 @@ async def send_message(request: ChatRequest, user: dict = Depends(get_current_us
 
     # Get or create conversation
     conv_id = request.conversation_id
-    if conv_id:
+    if conv_id and is_valid_object_id(conv_id):
         conv = await db.conversations.find_one({"_id": ObjectId(conv_id), "user_id": uid})
         if not conv:
-            raise HTTPException(status_code=404, detail="Conversation not found")
+            # Conversation not found - create new one
+            conv_id = None
     else:
+        # Invalid or missing conv_id - create new conversation
+        conv_id = None
+
+    if not conv_id:
         title = request.message[:50] if request.message else "New consultation"
         doc = {
             "user_id": uid,
@@ -219,10 +240,12 @@ async def send_message(request: ChatRequest, user: dict = Depends(get_current_us
         "created_at": datetime.now(timezone.utc),
     }
     await db.messages.insert_one(assistant_msg)
-    await db.conversations.update_one(
-        {"_id": ObjectId(conv_id)},
-        {"$set": {"updated_at": datetime.now(timezone.utc), "title": messages[0]["content"][:50] if messages else "Consultation"}}
-    )
+
+    if is_valid_object_id(conv_id):
+        await db.conversations.update_one(
+            {"_id": ObjectId(conv_id)},
+            {"$set": {"updated_at": datetime.now(timezone.utc), "title": messages[0]["content"][:50] if messages else "Consultation"}}
+        )
 
     assistant_msg["_id"] = str(assistant_msg.get("_id", ""))
     return {"reply": reply, "conversation_id": conv_id, "message": assistant_msg}
