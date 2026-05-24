@@ -1,4 +1,4 @@
-"""Multi-LLM chat - Gemini (free) + OpenAI fallback."""
+"""Multi-LLM chat - Groq (primary, free) + Gemini + OpenAI fallback."""
 import os
 import asyncio
 from datetime import datetime, timezone
@@ -11,19 +11,14 @@ from models import ChatRequest, ConversationCreate
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Only models confirmed working with google-genai SDK (v1beta)
+# Groq is primary - free, fast, no daily quota exhaustion
+# Gemini as fallback, OpenAI as last resort
 MODEL_PROVIDERS = {
+    "llama-3.3-70b": ("groq", "llama-3.3-70b-versatile"),
+    "llama-3.1-8b": ("groq", "llama-3.1-8b-instant"),
     "gemini-2.0-flash": ("gemini", "gemini-2.0-flash"),
-    "gemini-2.0-flash-lite": ("gemini", "gemini-2.0-flash-lite"),
-    "gpt-4o": ("openai", "gpt-4o"),
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
 }
-
-# Fallback chain for Gemini - try lite version if main is quota exhausted
-GEMINI_FALLBACK_CHAIN = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-]
 
 LANGUAGES = {
     "en": "English", "es": "Spanish", "fr": "French", "de": "German",
@@ -65,8 +60,27 @@ Be compassionate and clear.
     return prompt
 
 
-async def call_gemini_model(model_id: str, messages: list, system_prompt: str) -> str:
-    """Call a specific Gemini model - raises exception on failure."""
+async def call_groq(model_id: str, messages: list, system_prompt: str) -> str:
+    """Call Groq API - free tier, very fast, uses OpenAI-compatible SDK."""
+    import openai
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Groq API key not configured")
+    client = openai.AsyncOpenAI(
+        api_key=api_key,
+        base_url="https://api.groq.com/openai/v1"
+    )
+    full_messages = [{"role": "system", "content": system_prompt}] + messages
+    response = await client.chat.completions.create(
+        model=model_id,
+        messages=full_messages,
+        max_tokens=1500,
+    )
+    return response.choices[0].message.content
+
+
+async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
+    """Call Gemini API."""
     import google.genai as genai
     from google.genai import types
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -93,32 +107,8 @@ async def call_gemini_model(model_id: str, messages: list, system_prompt: str) -
     return response.text
 
 
-async def call_gemini(model_id: str, messages: list, system_prompt: str) -> str:
-    """Call Gemini with automatic fallback on 429 quota errors."""
-    if model_id in GEMINI_FALLBACK_CHAIN:
-        start_idx = GEMINI_FALLBACK_CHAIN.index(model_id)
-        fallback_models = GEMINI_FALLBACK_CHAIN[start_idx:]
-    else:
-        fallback_models = [model_id]
-
-    last_error = None
-    for attempt_model in fallback_models:
-        try:
-            return await call_gemini_model(attempt_model, messages, system_prompt)
-        except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-                last_error = e
-                continue
-            raise
-
-    raise HTTPException(
-        status_code=429,
-        detail=f"Gemini quota exhausted. Please try again later or switch to GPT-4o. ({str(last_error)[:150]})"
-    )
-
-
 async def call_openai(model_id: str, messages: list, system_prompt: str) -> str:
+    """Call OpenAI API."""
     import openai
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -143,7 +133,7 @@ async def list_models(user: dict = Depends(get_current_user)):
     ]
     return {
         "models": models_list,
-        "default": settings.get("default_model", "gemini-2.0-flash"),
+        "default": settings.get("default_model", "llama-3.3-70b"),
         "languages": [{"code": k, "name": v} for k, v in LANGUAGES.items()],
     }
 
@@ -167,7 +157,7 @@ async def create_conversation(data: ConversationCreate, user: dict = Depends(get
     doc = {
         "user_id": uid,
         "title": data.title or "New consultation",
-        "model": data.model or "gemini-2.0-flash",
+        "model": data.model or "llama-3.3-70b",
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
@@ -209,9 +199,9 @@ async def delete_conversation(conv_id: str, user: dict = Depends(get_current_use
 async def send_message(request: ChatRequest, user: dict = Depends(get_current_user)):
     from server import db
     uid = str(user["id"])
-    model_key = request.model or "gemini-2.0-flash"
+    model_key = request.model or "llama-3.3-70b"
     if model_key not in MODEL_PROVIDERS:
-        raise HTTPException(status_code=400, detail=f"Unsupported model: {model_key}")
+        model_key = "llama-3.3-70b"
     provider, model_id = MODEL_PROVIDERS[model_key]
 
     # Get or create conversation
@@ -255,7 +245,9 @@ async def send_message(request: ChatRequest, user: dict = Depends(get_current_us
 
     # Call AI
     try:
-        if provider == "gemini":
+        if provider == "groq":
+            reply = await call_groq(model_id, messages, system_prompt)
+        elif provider == "gemini":
             reply = await call_gemini(model_id, messages, system_prompt)
         else:
             reply = await call_openai(model_id, messages, system_prompt)
