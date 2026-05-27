@@ -29,7 +29,7 @@ export default function Navbar() {
             <Heart className="w-5 h-5" strokeWidth={1.6} />
           </div>
           <div className="leading-tight">
-            <div className="font-heading text-lg text-[#1A2E25]">SusStyle</div>
+            <div className="font-heading text-lg text-[#1A2E25]">MediAI</div>
             <div className="text-[10px] tracking-[0.25em] uppercase text-[#5C6A64]">AI Medical</div>
           </div>
         </Link>
