@@ -38,7 +38,7 @@ export default function Login() {
       <Navbar />
       <div className="max-w-md mx-auto px-6 py-16">
         <div className="text-center mb-10">
-          <div className="text-xs uppercase tracking-[0.3em] text-[#5C6A64] mb-3">SusStyle AI</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-[#5C6A64] mb-3">MediAI</div>
           <h1 className="font-heading text-4xl text-[#1A2E25]">{t("welcomeBack")}</h1>
         </div>
         <form onSubmit={submit} className="bg-white border border-[#E1DFDA] rounded-3xl p-8 space-y-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
