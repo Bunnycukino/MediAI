@@ -40,7 +40,7 @@ export default function Register() {
       <Navbar />
       <div className="max-w-md mx-auto px-6 py-16">
         <div className="text-center mb-10">
-          <div className="text-xs uppercase tracking-[0.3em] text-[#5C6A64] mb-3">SusStyle AI</div>
+          <div className="text-xs uppercase tracking-[0.3em] text-[#5C6A64] mb-3">MediAI</div>
           <h1 className="font-heading text-4xl text-[#1A2E25]">{t("signUp")}</h1>
           <p className="text-[#5C6A64] mt-3 text-sm">Your private AI doctor — free to start.</p>
         </div>
