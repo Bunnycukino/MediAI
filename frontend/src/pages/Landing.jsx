@@ -36,7 +36,7 @@ export default function Landing() {
           <div className="lg:col-span-7 animate-fade-up">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-[#E1DFDA] text-xs uppercase tracking-[0.25em] text-[#5C6A64] mb-8">
               <Stethoscope className="w-3.5 h-3.5 text-[#8BA888]" />
-              <span>susstyle.com</span>
+              <span>MediAI.com</span>
               <span className="text-[#8BA888]">•</span>
               <span>private AI doctor</span>
             </div>
@@ -107,7 +107,7 @@ export default function Landing() {
       <section className="bg-white border-y border-[#E1DFDA]">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-20 grid grid-cols-1 md:grid-cols-3 gap-10">
           {[
-            { n: "01", t: "Tell SusStyle what's bothering you", d: "Type or speak — share symptoms, history, or a question. The AI factors in your health profile." },
+            { n: "01", t: "Tell MediAI what's bothering you", d: "Type or speak — share symptoms, history, or a question. The AI factors in your health profile." },
             { n: "02", t: "Get a structured, sourced answer", d: "Likely causes, self-care, when to see a doctor, red flags — all backed by authoritative sources." },
             { n: "03", t: "Continue the conversation", d: "Switch models for second opinions. Save threads. Listen to answers in your language." },
           ].map((s) => (
@@ -137,7 +137,7 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-[#E1DFDA] py-10 text-center text-xs uppercase tracking-[0.3em] text-[#5C6A64]">
-        SusStyle AI &nbsp;•&nbsp; susstyle.com &nbsp;•&nbsp; Educational use only
+        MediAI AI &nbsp;•&nbsp; MediAI.com &nbsp;•&nbsp; Educational use only
       </footer>
     </div>
   );
