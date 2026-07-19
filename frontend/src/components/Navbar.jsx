@@ -37,7 +37,7 @@ export default function Navbar() {
             <ShoppingBag className="w-4 h-4 text-white" strokeWidth={1.8} />
           </div>
           <div className="leading-tight">
-            <div className="font-heading text-lg text-[#1A2E25]">SusStyle</div>
+                        <div className="font-heading text-lg text-[#1A2E25]">Shop With Style</div>
           </div>
         </Link>
 
